@@ -1,0 +1,4 @@
+{:paths ["src" "dev"]
+ :deps {org.clojure/clojure {:mvn/version "1.5.1"}
+        com.datomic/datomic-free {:mvn/version "0.9.4815.12"}
+        org.clojure/tools.namespace {:mvn/version "0.2.3"}}}
