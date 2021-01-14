@@ -8,16 +8,16 @@
 (def ensure-norm-tx-txfn
   "Transaction function to ensure each norm tx is executed exactly once"
   (d/function
-   '{:lang :clojure
-     :params [db norm-attr norm index-attr index tx]
-     :code (when-not (seq (q '[:find ?tx
-                               :in $ ?na ?nv ?ia ?iv
-                               :where [?tx ?na ?nv ?tx] [?tx ?ia ?iv ?tx]]
-                             db norm-attr norm index-attr index))
-             (cons {:db/id (d/tempid :db.part/tx)
-                    norm-attr norm
-                    index-attr index}
-                   tx))}))
+    '{:lang   :clojure
+      :params [db norm-attr norm index-attr index tx]
+      :code   (when-not (seq (q '[:find ?tx
+                                  :in $ ?na ?nv ?ia ?iv
+                                  :where [?tx ?na ?nv ?tx] [?tx ?ia ?iv ?tx]]
+                               db norm-attr norm index-attr index))
+                (cons {:db/id     (d/tempid :db.part/tx)
+                       norm-attr  norm
+                       index-attr index}
+                  tx))}))
 
 (defn read-resource
   "Reads and returns data from a resource containing edn text. An
@@ -26,35 +26,35 @@
    (read-resource {:readers *data-readers*} resource-name))
   ([opts resource-name]
    (with-open [reader (->> (io/resource resource-name)
-                           (io/reader)
-                           (java.io.PushbackReader.))]
+                        (io/reader)
+                        (java.io.PushbackReader.))]
      (clojure.edn/read opts reader))))
 
 (defn index-attr
   "Returns the index-attr corresponding to a conformity-attr"
   [conformity-attr]
   (keyword (namespace conformity-attr)
-           (str (name conformity-attr) "-index")))
+    (str (name conformity-attr) "-index")))
 
 (defn has-attribute?
   "Returns true if a database has an attribute named attr-name"
   [db attr-name]
   (-> (d/entity db attr-name)
-      :db.install/_attribute
-      boolean))
+    :db.install/_attribute
+    boolean))
 
 (defn has-function?
   "Returns true if a database has a function named fn-name"
   [db fn-name]
   (-> (d/entity db fn-name)
-      :db/fn
-      boolean))
+    :db/fn
+    boolean))
 
 (defn default-conformity-attribute-for-db
   "Returns the default-conformity-attribute for a db."
   [db]
   (or (some #(and (has-attribute? db %) %) [:conformity/conformed-norms default-conformity-attribute])
-      :conformity/conformed-norms))
+    :conformity/conformed-norms))
 
 (defn last-tx-instant
   "Returns a value of the :db/txInstant attribute of the last transaction."
@@ -69,9 +69,9 @@
   "If instant is not nil, add it as the :db/txInstant attribute of transaction."
   [instant tx-data]
   (if instant
-    (cons {:db/id (d/tempid :db.part/tx)
+    (cons {:db/id        (d/tempid :db.part/tx)
            :db/txInstant instant}
-          tx-data)
+      tx-data)
     tx-data))
 
 (defn ensure-conformity-schema
@@ -83,28 +83,28 @@
   ([conn conformity-attr tx-instant]
    (when-not (has-attribute? (db conn) conformity-attr)
      (d/transact conn (with-tx-instant tx-instant
-                        [{:db/id (d/tempid :db.part/db)
-                          :db/ident conformity-attr
-                          :db/valueType :db.type/keyword
-                          :db/cardinality :db.cardinality/one
-                          :db/doc "Name of this transaction's norm"
-                          :db/index true
+                        [{:db/id                 (d/tempid :db.part/db)
+                          :db/ident              conformity-attr
+                          :db/valueType          :db.type/keyword
+                          :db/cardinality        :db.cardinality/one
+                          :db/doc                "Name of this transaction's norm"
+                          :db/index              true
                           :db.install/_attribute :db.part/db}])))
    (when-not (has-attribute? (db conn) (index-attr conformity-attr))
      (d/transact conn (with-tx-instant tx-instant
-                        [{:db/id (d/tempid :db.part/db)
-                          :db/ident (index-attr conformity-attr)
-                          :db/valueType :db.type/long
-                          :db/cardinality :db.cardinality/one
-                          :db/doc "Index of this transaction within its norm"
-                          :db/index true
+                        [{:db/id                 (d/tempid :db.part/db)
+                          :db/ident              (index-attr conformity-attr)
+                          :db/valueType          :db.type/long
+                          :db/cardinality        :db.cardinality/one
+                          :db/doc                "Index of this transaction within its norm"
+                          :db/index              true
                           :db.install/_attribute :db.part/db}])))
    (when-not (has-function? (db conn) conformity-ensure-norm-tx)
      (d/transact conn (with-tx-instant tx-instant
-                        [{:db/id (d/tempid :db.part/user)
+                        [{:db/id    (d/tempid :db.part/user)
                           :db/ident conformity-ensure-norm-tx
-                          :db/doc "Ensures each norm tx is executed exactly once"
-                          :db/fn ensure-norm-tx-txfn}])))))
+                          :db/doc   "Ensures each norm tx is executed exactly once"
+                          :db/fn    ensure-norm-tx-txfn}])))))
 
 (defn conforms-to?
   "Does database have a norm installed?
@@ -117,13 +117,13 @@
    (conforms-to? db (default-conformity-attribute-for-db db) norm tx-count))
   ([db conformity-attr norm tx-count]
    (and (has-attribute? db conformity-attr)
-        (pos? tx-count)
-        (-> (q '[:find ?tx
-                 :in $ ?na ?nv
-                 :where [?tx ?na ?nv ?tx]]
-               db conformity-attr norm)
-            count
-            (= tx-count)))))
+     (pos? tx-count)
+     (-> (q '[:find ?tx
+              :in $ ?na ?nv
+              :where [?tx ?na ?nv ?tx]]
+           db conformity-attr norm)
+       count
+       (= tx-count)))))
 
 (defn maybe-timeout-synch-schema [conn maybe-timeout]
   (if maybe-timeout
@@ -142,23 +142,23 @@
    (reduce
      (fn [acc [tx-index tx]]
        (try
-         (let [safe-tx [conformity-ensure-norm-tx
-                        norm-attr norm-name
-                        (index-attr norm-attr) tx-index
-                        (with-tx-instant tx-instant tx)]
-               _ (maybe-timeout-synch-schema conn sync-schema-timeout)
+         (let [safe-tx   [conformity-ensure-norm-tx
+                          norm-attr norm-name
+                          (index-attr norm-attr) tx-index
+                          (with-tx-instant tx-instant tx)]
+               _         (maybe-timeout-synch-schema conn sync-schema-timeout)
                tx-result @(d/transact conn [safe-tx])]
            (if (next (:tx-data tx-result))
              (conj acc {:norm-name norm-name
-                        :tx-index tx-index
+                        :tx-index  tx-index
                         :tx-result tx-result})
              acc))
          (catch Throwable t
            (let [reason (.getMessage t)
-                 data {:succeeded acc
-                       :failed {:norm-name norm-name
-                                :tx-index tx-index
-                                :reason reason}}]
+                 data   {:succeeded acc
+                         :failed    {:norm-name norm-name
+                                     :tx-index  tx-index
+                                     :reason    reason}}]
              (throw (ex-info reason data t))))))
      acc (map-indexed vector txes))))
 
@@ -191,13 +191,14 @@
   Run transaction for each element of txes collection otherwise."
   [acc conn norm-attr norm-name txes ex sync-schema-timeout tx-instant]
   (if (empty? txes)
-    (let [reason (or ex
+    acc
+    #_(let [reason (or ex
                      (str "No transactions provided for norm "
-                          norm-name))
-          data {:succeeded acc
-                :failed {:norm-name norm-name
-                         :reason reason}}]
-      (throw (ex-info reason data)))
+                       norm-name))
+            data   {:succeeded acc
+                    :failed    {:norm-name norm-name
+                                :reason    reason}}]
+        (throw (ex-info reason data)))
     (reduce-txes acc conn norm-attr norm-name txes sync-schema-timeout
       tx-instant)))
 
@@ -214,10 +215,10 @@
    (first-time-only-conforms-to? db (default-conformity-attribute-for-db db) norm))
   ([db conformity-attr norm]
    (and (has-attribute? db conformity-attr)
-        (ffirst (q '[:find ?nv
-                     :in $ ?na ?nv
-                     :where [?tx ?na ?nv]]
-                   db conformity-attr norm)))))
+     (ffirst (q '[:find ?nv
+                  :in $ ?na ?nv
+                  :where [?tx ?na ?nv]]
+               db conformity-attr norm)))))
 
 (defn handle-first-time-only-norm
   [acc conn norm-attr norm-map norm-name sync-schema-timeout tx-instant]
@@ -296,7 +297,7 @@
 (defn- speculative-conn
   "Creates a mock datomic.Connection that speculatively applies transactions using datomic.api/with"
   [db]
-  (let [state (atom {:db-after db})
+  (let [state                  (atom {:db-after db})
         wrap-listenable-future (fn [value]
                                  (reify datomic.ListenableFuture
                                    (get [this] value)
@@ -329,5 +330,5 @@
    (let [conn (speculative-conn db)]
      (ensure-conformity-schema conn conformity-attr)
      (let [result (reduce-norms [] conn conformity-attr norm-map norm-names)]
-       {:db (d/db conn)
+       {:db     (d/db conn)
         :result result}))))
